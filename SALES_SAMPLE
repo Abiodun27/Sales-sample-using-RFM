@@ -1,0 +1,243 @@
+DROP TABLE IF EXISTS Sales_table
+CREATE TABLE Sales_table(ORDERNUMBER INT NOT NULL, QUANTITYORDERED INT, PRICEEACH DECIMAL,ORDERLINENUMBER INT, SALES DECIMAL, 
+			 ORDERDATE TIMESTAMP, STATUS VARCHAR(50), QTR_ID INT, MONTH_ID INT, YEAR_ID INT, PRODUCTLINE VARCHAR(50), MSRP INT, 
+			 PRODUCTCODE VARCHAR(50), CUSTOMERNAME VARCHAR(265), PHONE VARCHAR(50), ADDRESSLINE1 VARCHAR(256), ADDRESSLINE2 VARCHAR(256), 
+			 city VARCHAR(50), state VARCHAR(50), postalcode VARCHAR(50), country VARCHAR(50), territory VARCHAR(50), 
+			 CONTACTLASTNAME VARCHAR(50), CONTACTFIRSTNAME VARCHAR(50), DEALSIZE varchar(50));
+			 
+
+-- Inspecting Data
+SELECT * FROM sales_table;
+
+--Checking Unique Values
+SELECT DISTINCT status FROM sales_table;  -- Nice one to plot
+SELECT DISTINCT year_id FROM sales_table;			 
+SELECT DISTINCT productline FROM sales_table; -- Nice to plot
+SELECT DISTINCT country FROM sales_table;  --Nice to plot
+SELECT DISTINCT dealsize FROM sales_table; --Nice to plot
+SELECT DISTINCT territory FROM sales_table; --Nice to plot
+
+--Analysis
+--Lets start by grouping sales by productline 
+SELECT productline, SUM(sales) as Revenue
+FROM sales_table
+GROUP BY productline
+ORDER BY 2 DESC;               --Revenue is 2
+
+
+-- We can check which year they made the most sales i.e Like sales across the years
+SELECT year_id, SUM(sales) as Revenue
+FROM sales_table
+GROUP BY year_id
+ORDER BY 2 DESC;
+
+-- Let check why they made the least sales in 2005(they only operate for 5 months)
+SELECT DISTINCT month_id 
+FROM sales_table
+WHERE year_id = 2005;
+
+--Let see which of the dealsize made the most sales
+SELECT dealsize, SUM(sales) as Revenue
+FROM sales_table
+GROUP BY dealsize
+ORDER BY Revenue DESC;
+
+--What was the best month for sales in a specific year? How much was earned month?
+SELECT month_id, SUM(sales) as Revenue, COUNT(ordernumber) as Frequency
+FROM sales_table
+WHERE year_id = 2005 -- Change year to see the rest
+GROUP BY  month_id
+ORDER BY 2 DESC;
+
+--November seems to be the month, what product do they sell in November, classic car i believe
+SELECT month_id, productline, SUM(sales) as Revenue, COUNT(ordernumber) as Frequency
+FROM sales_table
+WHERE year_id = 2004 and month_id = 11 -- Change year to see the rest
+GROUP BY  month_id, productline
+ORDER BY 3 DESC;
+
+-- In which country is the most sales made?
+SELECT country, SUM(sales) as Revenue, COUNT(ordernumber) as Frequency
+FROM sales_table
+GROUP BY country
+ORDER BY Revenue DESC, Frequency DESC;
+
+-- In which country is the productline most expensive?
+--SELECT *
+--FROM(
+		SELECT country,
+		productline,
+		priceeach
+		--DENSE_RANK() OVER(PARTITION BY COUNTRY ORDER BY priceeach DESC) AS drk
+		FROM sales_table
+		WHERE productline = 'Classic Cars'
+--	) AS x
+--WHERE x.drk = 1
+
+
+
+-- What is the status of most the product
+SELECT DISTINCT status, productline, SUM(sales) as Revenue, COUNT(ordernumber) as Frequency
+FROM sales_table
+GROUP BY status, productline
+ORDER BY Revenue DESC, Frequency DESC;
+
+
+--Who is our best customer(this could be best answered with RFM)
+
+__RFM ANALYSIS
+--Recency-Frequency-Monetary (RFM)
+--It is an indexing technique that uses past purchase behaviour to segment customers
+--An RFM report is a way of segmenting customers using three key metrics:
+/*recency (*how long ago their last purchase was),
+  frequency (how often they purchase),
+  monetary value(how much they spent).*/
+  --DATA POINT USED IN RFM ANALYSIS
+  --Recency - Last order date
+  --Frequency - Count of total orders
+  --Monetary value - total spend
+
+SELECT 
+	customername, 
+	SUM(sales) AS monetaryValue,
+	ROUND(AVG(sales), 2) AS avgmonetaryValue,
+	COUNT(ordernumber) AS Frequency,
+	MAX(orderdate) AS last_order_date
+FROM sales_table
+GROUP BY customername
+
+
+SELECT 
+	customername, 
+	SUM(sales) AS monetaryValue,
+	ROUND(AVG(sales), 2) AS avgmonetaryValue,
+	COUNT(ordernumber) AS Frequency,
+	MAX(orderdate) AS last_order_date
+	(SELECT MAX(orderdate) from sales_table) as max_order_date,
+	AGE ((SELECT MAX(orderdate) from sales_table), MAX(orderdate)) as Recency
+FROM sales_table
+GROUP BY customername
+
+
+
+--Using CTE
+WITH 
+rfm (customername , monetaryValue, avgmonetaryValue, Frequency, last_order_date, max_order_date, Recency) 
+          AS (
+				SELECT 
+					customername, 
+					SUM(sales) as monetaryValue,
+					AVG(sales) as avgmonetaryValue,
+					COUNT(ordernumber) as Frequency,
+					MAX(orderdate) as last_order_date,
+					(SELECT MAX(orderdate) from sales_table) as max_order_date,
+					AGE ((SELECT MAX(orderdate) from sales_table), MAX(orderdate)) as Recency
+				FROM sales_table
+				GROUP BY customername
+	    ),
+rfm_calc
+           AS (
+				SELECT 
+					r.*,
+					NTILE(4) OVER(ORDER BY recency) AS rfm_recency,
+					NTILE(4) OVER(ORDER BY frequency) AS rfm_frequency,
+					NTILE(4) OVER(ORDER BY avgmonetaryValue) AS rfm_monetary
+				FROM rfm AS r
+	   		)
+SELECT 
+      c.*,
+      (rfm_recency + rfm_frequency +  rfm_monetary) AS rfm_cell,
+	  CAST(rfm_recency AS VARCHAR) || CAST(rfm_frequency AS VARCHAR) ||  CAST(rfm_monetary AS VARCHAR) AS rfm_cell_string
+	  --(rfm_recency::VARCHAR) || (rfm_frequency::VARCHAR) || (rfm_monetary::VARCHAR) AS rfm_cell_string1
+FROM rfm_calc AS c
+
+
+--Lets create a Temp Table, so we don't run the CTE all the time
+DROP TABLE IF EXISTS rfm_t
+CREATE TEMP TABLE  rfm_t(
+	                   customername VARCHAR(255), 
+					   monetaryValue NUMERIC,
+					   avgmonetaryValue NUMERIC,
+					   Frequency BIGINT ,
+					   last_order_date TIMESTAMP,
+					   max_order_date TIMESTAMP,
+					   Recency INTERVAL,
+					   rfm_recency INT,
+					   rfm_frequency INT,
+					   rfm_monetary INT,
+					   rfm_cell INT,
+					   rfm_cell_string TEXT
+                       )
+INSERT INTO rfm_t
+WITH rfm  AS (
+				SELECT 
+					customername, 
+					SUM(sales) as monetaryValue,
+					AVG(sales) as avgmonetaryValue,
+					COUNT(ordernumber) as Frequency,
+					MAX(orderdate) as last_order_date,
+					(SELECT MAX(orderdate) from sales_table) as max_order_date,
+					AGE ((SELECT MAX(orderdate) from sales_table), MAX(orderdate)) as Recency
+				FROM sales_table
+				GROUP BY customername
+	    ),
+rfm_calc AS (
+				SELECT 
+					r.*,
+					NTILE(4) OVER(ORDER BY recency) AS rfm_recency,
+					NTILE(4) OVER(ORDER BY frequency) AS rfm_frequency,
+					NTILE(4) OVER(ORDER BY monetaryValue) AS rfm_monetary
+				FROM rfm AS r
+	   		)
+SELECT 
+      c.*,
+      rfm_recency + rfm_frequency +  rfm_monetary AS rfm_cell,
+	  CAST(rfm_recency AS VARCHAR) || CAST(rfm_frequency AS VARCHAR) ||  CAST(rfm_monetary AS VARCHAR) AS rfm_cell_string
+	  --(rfm_recency::VARCHAR) || (rfm_frequency::VARCHAR) || (rfm_monetary::VARCHAR) AS rfm_cell_string1
+FROM rfm_calc AS c
+
+-- Lets segment our customers and selects the following columns from the Temp Table
+SELECT 
+customername, 
+rfm_recency, 
+rfm_frequency, 
+rfm_monetary,
+		CASE
+			WHEN CAST(rfm_cell_string AS INT) IN (111, 112, 121, 122, 123, 132, 211, 212, 114, 141) THEN 'lost customers'  -- lost customers
+			WHEN CAST(rfm_cell_string AS INT) IN (133, 134, 143, 144, 244, 334, 343, 344) THEN 'slipping away, cannot lose' --(Big spenders who haven't
+			--purchased lately)slipping away)
+			WHEN CAST(rfm_cell_string AS INT) IN (311, 312, 321, 411, 331, 332) THEN 'new customers'
+			WHEN CAST(rfm_cell_string AS INT) IN (222, 223, 232, 233, 243, 322, 322, 323, 333) THEN 'potential churners'
+			WHEN CAST(rfm_cell_string AS INT) IN (111, 112, 121, 122, 123, 132, 211, 212, 114, 141) THEN 'active'  --(customers who buys often & recently, 
+			--but at low price points)
+			WHEN CAST(rfm_cell_string AS INT) IN (412, 421, 422, 423, 432, 433, 434, 443, 444) THEN 'loyal'
+		END rfm_segment
+FROM rfm_t
+
+					
+--What product are most often sold together?
+--SELECT * FROM sales_table WHERE  ordernumber = 10276
+
+SELECT y.ordernumber,
+       STRING_AGG(y.productcode, ',')
+FROM (
+			SELECT ordernumber, productcode 
+			FROM sales_table
+			WHERE ordernumber
+			IN (
+				SELECT ordernumber
+				FROM (
+						SELECT ordernumber, count(*) as rn
+						FROM sales_table
+						WHERE status = 'Shipped'
+						GROUP BY ordernumber
+					 ) AS x
+			WHERE x.rn = 3
+			   )
+      ) AS y
+GROUP BY y.ordernumber
+ORDER BY string_agg DESC
+
+
+
+
