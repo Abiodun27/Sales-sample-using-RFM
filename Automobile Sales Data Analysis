@@ -241,15 +241,17 @@ ORDER BY string_agg DESC
 
 
 
-For Visualization, Tableau Public is used to answer the question of the analyssi and to obtain more insight, the tableau public url is given below:
-https://public.tableau.com/app/profile/thomas.abiodun.olumide/viz/SalesSampleProject_16641362837090/SalesDash1
+For Visualization, Tableau Public is used to answer the question of the analysis and to obtain more insight, the tableau public url are given below:
+https://public.tableau.com/app/profile/thomas.abiodun.olumide/viz/SalesSampleProject1/SampleSalesDash1?publish=yes
+https://public.tableau.com/app/profile/thomas.abiodun.olumide/viz/SalesSampleProject_16641362837090/SampleSalesDash2?publish=yes
 
 Conclusion
 What can we do with the details of this analysis?
 
-1. We can decide to give discount on products that have high prices, so as to sell more of them.
-2. We can also reduce the price of those high selling products, if bought together with those of high prices.
-3. Products bought together can be offered as one package with discount, to drive sales.
-4. The AAA Bateries(4-Pack) was the most popular product.
-5. While the USB-C Charging Cable and Lightning Cable that are most frequently purchased.
-6. The highest order of most popular product was made in December of the year
+1. The Country where most revenue was generated from is the United State of America, therefore steps like marketing campaigne can be intensified in other countries.
+2. The best customer in the country in terms of sales is 'Mini Gift Distributors Ltd' while the least customer is 'Toys4Grownups.com'.
+3. The most profitable dealsize is the medium size.
+4. The most popular productline are the classic cars making the most sales every year and made the most sales in 2004.
+5. Productline most frequently purchased together, can be given discount to drive more sales.
+6. The highest sales was made in November of every year.
+7. The revenue from 'shipped' status is far more than all others combined, which signifies that the every sectors involved in sales needs to do more.
